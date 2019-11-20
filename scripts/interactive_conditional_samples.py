@@ -1,14 +1,13 @@
-import sys
-import os
 import argparse
-import json
+import os
 import re
 import time
-import tensorflow as tf
-import numpy as np
 
-from train.modeling import GroverModel, GroverConfig, sample
+import numpy as np
+import tensorflow as tf
+
 from tokenization import tokenization
+from train.modeling import GroverConfig, sample
 
 parser = argparse.ArgumentParser(description='Contextual generation (aka given some metadata we will generate articles')
 parser.add_argument(
@@ -121,10 +120,11 @@ def extract_generated_target(output_tokens, tokenizer):
         'end_ind': end_ind,
     }
 
+
 args = parser.parse_args()
 proj_root_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 vocab_file_path = os.path.join(proj_root_path, "tokenization/bert-base-chinese-vocab.txt")
-tokenizer = tokenization.FullTokenizer(vocab_file=vocab_file_path , do_lower_case=True)
+tokenizer = tokenization.FullTokenizer(vocab_file=vocab_file_path, do_lower_case=True)
 news_config = GroverConfig.from_json_file(args.model_config_fn)
 
 # We might have to split the batch into multiple chunks if the batch size is too large
@@ -158,19 +158,22 @@ with tf.Session(config=tf_config, graph=tf.Graph()) as sess:
         if text == "":
             break
 
-        for i in range(args.samples):
-            print("\n\nSample,", i + 1, " of ", args.samples)
-            _start = time.time()
-            line = tokenization.convert_to_unicode(text)
-            bert_tokens = tokenizer.tokenize(line)
-            encoded = tokenizer.convert_tokens_to_ids(bert_tokens)
-            context_formatted = []
-            context_formatted.extend(encoded)
-            # Format context end
+        # init step
+        _start_time = time.time()
+        line = tokenization.convert_to_unicode(text)
+        bert_tokens = tokenizer.tokenize(line)
+        encoded = tokenizer.convert_tokens_to_ids(bert_tokens)
+        context_formatted = []
+        context_formatted.extend(encoded)
+        # Format context end
 
-            gens = []
-            gens_raw = []
-            gen_probs = []
+        gens = []
+        gens_raw = []
+        gen_probs = []
+
+        sample_index = 0
+        while sample_index < args.samples:
+            print("\n\nSample,", sample_index + 1, " of ", args.samples)
 
             for chunk_i in range(num_chunks):
                 _c_start = time.time()
@@ -178,16 +181,20 @@ with tf.Session(config=tf_config, graph=tf.Graph()) as sess:
                                                  feed_dict={initial_context: [context_formatted] * batch_size_per_chunk,
                                                             eos_token: 60000,
                                                             p_for_topp: top_p[chunk_i]})
-                _c_sess = time.time()
-                print("Sample {}, Chunk. {}, sess run: cost time {}".format(i + 1, chunk_i, _c_sess - _c_start))
+                _c_end = time.time()
                 for t_i, p_i in zip(tokens_out, probs_out):
                     extraction = extract_generated_target(output_tokens=t_i, tokenizer=tokenizer)
-                    gens.append(extraction['extraction'])
+                    gens.append((extraction['extraction'], (_c_end - _c_start) / batch_size_per_chunk))
 
-                    print("\n\nText >>\n{}\n".format("".join(re.findall('.{1,70}', extraction['extraction'].replace('[UNK]', '')))))
+            _start_index = sample_index
+            for _extraction, _time_cost in gens[_start_index:]:
+                print("Time cost {}".format(_time_cost))
+                print("\n".join(re.findall('.{1,70}', _extraction.replace('[UNK]', ''))))
 
-                print("\n\nSample {}, Chunk. {}, extraction: cost time {}".format(i + 1, chunk_i, time.time() - _c_sess))
+                sample_index += 1
+                if sample_index >= args.samples:
+                    break
 
-            l = re.findall('.{1,70}', gens[0].replace('[UNK]', ''))
-            print("Sample {}: time cost {}".format(i + 1, time.time() - _start))
-            print("".join(l))
+        # logging
+        _end_time = time.time()
+        print("Print {}/{} samples, time cost {}\n\n".format(args.samples, len(gens), _end_time - _start_time))
