@@ -92,6 +92,14 @@ parser.add_argument(
     type=int,
     help='num_samples',
 )
+parser.add_argument(
+    '-length',
+    dest='length',
+    default=1025,
+    type=int,
+    help='num_length',
+)
+
 
 def extract_generated_target(output_tokens, tokenizer):
     """
@@ -126,8 +134,8 @@ max_batch_size = args.max_batch_size if args.max_batch_size is not None else def
 # factorize args.batch_size = (num_chunks * batch_size_per_chunk) s.t. batch_size_per_chunk < max_batch_size
 num_chunks = int(np.ceil(args.batch_size / max_batch_size))
 batch_size_per_chunk = int(np.ceil(args.batch_size / num_chunks))
-print("\n~~\nbatch size={}, max batch size={}, num chunks={}, batch size per chunk={}\n~~\n".format(
-    args.batch_size, max_batch_size, num_chunks, batch_size_per_chunk), flush=True)
+print("\n~~\nbatch size={}, max batch size={}, num chunks={}, batch size per chunk={}, sentence length={}\n~~\n".format(
+    args.batch_size, max_batch_size, num_chunks, batch_size_per_chunk, args.length), flush=True)
 
 # This controls the top p for each generation.
 top_p = np.ones((num_chunks, batch_size_per_chunk), dtype=np.float32) * args.top_p
@@ -140,7 +148,7 @@ with tf.Session(config=tf_config, graph=tf.Graph()) as sess:
     eos_token = tf.placeholder(tf.int32, [])
     tokens, probs = sample(news_config=news_config, initial_context=initial_context,
                            eos_token=eos_token, ignore_ids=None, p_for_topp=p_for_topp,
-                           do_topk=False)
+                           do_topk=False, sentence_length=args.length)
 
     saver = tf.train.Saver()
     saver.restore(sess, args.model_ckpt)

@@ -761,13 +761,14 @@ def initialize_from_context(initial_context, ignore_ids, news_config, p_for_topp
 
 
 def sample(news_config: GroverConfig, initial_context, eos_token, ignore_ids=None, p_for_topp=0.95,
-           do_topk=False):
+           do_topk=False, sentence_length: int = 1025):
     """
     V1 version of: sample outputs from a model, and do it all at once
     :param news_config: Configuration used to construct the model
     :param initial_context: [batch_size, seq_length] that we'll start generating with
     :param eos_token: Stop generating if you see this (tf scalar)
     :param ignore_ids: NEVER GENERATE THESE [vocab_size]
+    :param sentence_length:
     :return:
     """
     batch_size, _ = get_shape_list(initial_context, expected_rank=2)
@@ -801,7 +802,7 @@ def sample(news_config: GroverConfig, initial_context, eos_token, ignore_ids=Non
             return tf.math.logical_not(tf.reduce_all(tf.reduce_any(is_eos, axis=1)))
 
         tokens, cache, probs = tf.while_loop(
-            cond=cond, body=body, maximum_iterations=1025 - get_shape_list(ctx)[1],
+            cond=cond, body=body, maximum_iterations=sentence_length - get_shape_list(ctx)[1],
             loop_vars=[ctx, cache, probs],
             shape_invariants=[tf.TensorShape([batch_size, None]),
                               tf.TensorShape(
