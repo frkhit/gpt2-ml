@@ -152,11 +152,14 @@ with tf.Session(config=tf_config, graph=tf.Graph()) as sess:
 
     saver = tf.train.Saver()
     saver.restore(sess, args.model_ckpt)
-    print('🍺Model[{}] loaded. Input something please:'.format(args.model_ckpt))
-    text = input()
-    while text != "":
+
+    while True:
+        text = input('🍺Model[{}] loaded. Input something please:\n'.format(args.model_ckpt))
+        if text == "":
+            break
+
         for i in range(args.samples):
-            print("Sample,", i + 1, " of ", args.samples)
+            print("\n\nSample,", i + 1, " of ", args.samples)
             _start = time.time()
             line = tokenization.convert_to_unicode(text)
             bert_tokens = tokenizer.tokenize(line)
@@ -180,9 +183,11 @@ with tf.Session(config=tf_config, graph=tf.Graph()) as sess:
                 for t_i, p_i in zip(tokens_out, probs_out):
                     extraction = extract_generated_target(output_tokens=t_i, tokenizer=tokenizer)
                     gens.append(extraction['extraction'])
-                print("Sample {}, Chunk. {}, extraction: cost time {}".format(i + 1, chunk_i, time.time() - _c_sess))
+
+                    print("\n\nText >>\n{}\n".format("".join(re.findall('.{1,70}', extraction['extraction'].replace('[UNK]', '')))))
+
+                print("\n\nSample {}, Chunk. {}, extraction: cost time {}".format(i + 1, chunk_i, time.time() - _c_sess))
 
             l = re.findall('.{1,70}', gens[0].replace('[UNK]', ''))
             print("Sample {}: time cost {}".format(i + 1, time.time() - _start))
-            print("\n".join(l))
-        text = input()
+            print("".join(l))
