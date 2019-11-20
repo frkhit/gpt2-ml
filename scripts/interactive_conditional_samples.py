@@ -3,7 +3,7 @@ import os
 import argparse
 import json
 import re
-
+import time
 import tensorflow as tf
 import numpy as np
 
@@ -144,11 +144,12 @@ with tf.Session(config=tf_config, graph=tf.Graph()) as sess:
 
     saver = tf.train.Saver()
     saver.restore(sess, args.model_ckpt)
-    print('🍺Model loaded. Input something please:')
+    print('🍺Model[{}] loaded. Input something please:'.format(args.model_ckpt))
     text = input()
     while text != "":
         for i in range(args.samples):
             print("Sample,", i + 1, " of ", args.samples)
+            _start = time.time()
             line = tokenization.convert_to_unicode(text)
             bert_tokens = tokenizer.tokenize(line)
             encoded = tokenizer.convert_tokens_to_ids(bert_tokens)
@@ -161,15 +162,19 @@ with tf.Session(config=tf_config, graph=tf.Graph()) as sess:
             gen_probs = []
 
             for chunk_i in range(num_chunks):
+                _c_start = time.time()
                 tokens_out, probs_out = sess.run([tokens, probs],
                                                  feed_dict={initial_context: [context_formatted] * batch_size_per_chunk,
                                                             eos_token: 60000,
                                                             p_for_topp: top_p[chunk_i]})
-
+                _c_sess = time.time()
+                print("Sample {}, Chunk. {}, sess run: cost time {}".format(i + 1, chunk_i, _c_sess - _c_start))
                 for t_i, p_i in zip(tokens_out, probs_out):
                     extraction = extract_generated_target(output_tokens=t_i, tokenizer=tokenizer)
                     gens.append(extraction['extraction'])
+                print("Sample {}, Chunk. {}, extraction: cost time {}".format(i + 1, chunk_i, time.time() - _c_sess))
 
             l = re.findall('.{1,70}', gens[0].replace('[UNK]', ''))
+            print("Sample {}: time cost {}".format(i + 1, time.time() - _start))
             print("\n".join(l))
         text = input()
