@@ -144,7 +144,7 @@ with tf.Session(config=tf_config, graph=tf.Graph()) as sess:
 
     saver = tf.train.Saver()
     saver.restore(sess, args.model_ckpt)
-    print('🍺Model loaded. Input something please:')
+    print('🍺Model[{}] loaded. Input something please:'.format(args.model_ckpt))
     text = input()
     while text != "":
         for i in range(args.samples):
