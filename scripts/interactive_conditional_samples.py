@@ -173,8 +173,6 @@ with tf.Session(config=tf_config, graph=tf.Graph()) as sess:
 
         sample_index = 0
         while sample_index < args.samples:
-            print("\n\nSample,", sample_index + 1, " of ", args.samples)
-
             for chunk_i in range(num_chunks):
                 _c_start = time.time()
                 tokens_out, probs_out = sess.run([tokens, probs],
@@ -188,7 +186,7 @@ with tf.Session(config=tf_config, graph=tf.Graph()) as sess:
 
             _start_index = sample_index
             for _extraction, _time_cost in gens[_start_index:]:
-                print("Time cost {}".format(_time_cost))
+                print("\n\nSample {} of {}, time cost {}".format(sample_index + 1, args.samples, _time_cost))
                 print("\n".join(re.findall('.{1,70}', _extraction.replace('[UNK]', ''))))
 
                 sample_index += 1
